@@ -1,0 +1,74 @@
+
+```{r }
+library(caret)
+
+#import data to R
+training1 = read.csv("pml-training.csv", na.strings=c("", "NA", "NULL"))
+test = read.csv("pml-testing.csv", na.strings=c("", "NA", "NULL"))
+
+
+
+#Remove variables with missing data
+training2 <- training1[ , colSums(is.na(training1)) == 0]
+
+
+
+
+#Remove variables which are irrelevant. 
+
+remove = c('X', 'user_name', 'raw_timestamp_part_1', 'raw_timestamp_part_2', 'cvtd_timestamp', 'new_window', 'num_window')
+training3 <- training2[, -which(names(training2) %in% remove)]
+
+
+
+#Remove variables with near zero variability
+zeroVar= nearZeroVar(training3[sapply(training3, is.numeric)], saveMetrics = TRUE)
+training4 = training3[,zeroVar[, 'nzv']==0]
+
+
+#Remove highly correlated independent variables
+corrMatrix <- cor(na.omit(training3[sapply(training3, is.numeric)]))
+corrDF <- expand.grid(row = 1:52, col = 1:52)
+corrDF$correlation <- as.vector(corrMatrix)
+levelplot(correlation ~ row+ col, corrDF)
+removecor = findCorrelation(corrMatrix, cutoff = .90, verbose = TRUE)
+training5 = training4[,-removecor]
+dim(training5)
+
+#set seed to have repeatable results
+set.seed(11111)
+
+#create insample test set
+inTrain <- createDataPartition(y=training5$classe, p=0.7, list=FALSE)
+training <- training5[inTrain,]
+testing <- training5[-inTrain,]
+dim(training)
+dim(testing)
+
+
+
+#load randomForest library for faster results
+require(randomForest)
+
+#built a RF and check variable importance
+rf.training=randomForest(classe~.,data=training, ntree=100, importance=TRUE)
+rf.training
+
+#plot(rf.training, log="y")
+varImpPlot(rf.training,)
+
+
+#Evaluate it on insample test data
+tree.pred=predict(rf.training,testing,type="class")
+predMatrix = with(testing,table(tree.pred,classe))
+
+# error rate
+sum(diag(predMatrix))/sum(as.vector(predMatrix))
+```
+
+
+---
+title: "Practical_Machine_Learning_Asg.R"
+author: "Huso-Lina"
+date: "Mon Apr 27 00:14:43 2015"
+---
